@@ -5,6 +5,9 @@ Simple instance generator for pentominoes-like problems in MiniZinc.
 The project contains a single executable minizinc-pentominoes-generator, that is invoked as follows
 
 ```
+$ $ minizinc-pentominoes-generator --help
+Usage: minizinc-pentominoes-generator --size <size> --tiles <tiles> [--seed <seed>] [-d] [--strategy <strategy>]
+
 Generate instances for pentominoes-like MiniZinc problems
 
 Options:
@@ -13,8 +16,9 @@ Options:
   --seed            the random number seed to use (if absent, use system
                     entropy)
   -d, --debug       debug print the generated board
+  --strategy        strategy to use for generating the board (source (default),
+                    target, close, and far)
   --help            display usage information
-
 ```
 
 The `model/` folder contains a model for the problem, and the `data/` folder contains a set of instances.

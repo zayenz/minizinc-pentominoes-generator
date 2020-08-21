@@ -24,7 +24,13 @@ pub enum Mode {
 }
 
 /// Generated a filled in board
-pub fn gen_board(size: usize, tiles: usize, seed: Option<u64>, debug: bool) -> Board {
+pub fn gen_board(
+    strategy: Mode,
+    size: usize,
+    tiles: usize,
+    seed: Option<u64>,
+    debug: bool,
+) -> Board {
     let size = size as i32;
     let mut board = vec![vec![0; size as usize]; size as usize];
     let mut rng = if let Some(seed) = seed {
@@ -94,8 +100,7 @@ pub fn gen_board(size: usize, tiles: usize, seed: Option<u64>, debug: bool) -> B
     // Grow tiles by choosing a tile and a free position using the current mode, and filling it it,
     // as long as there are empty places to fill in
     while !non_used.is_empty() {
-        let mode = Mode::UniformExtendSource;
-        if let Some((tile, (ht, wt))) = match mode {
+        if let Some((tile, (ht, wt))) = match strategy {
             Mode::UniformExtendSource => {
                 // Choose one source square that has been filled in, and choosing one direction
                 // from that tile that is not filled in yet, and fill it in.
@@ -120,7 +125,8 @@ pub fn gen_board(size: usize, tiles: usize, seed: Option<u64>, debug: bool) -> B
                 neighbors.remove(&target);
                 if !used.contains(&target) {
                     let (ht, wt) = target;
-                    if let Some((hs, ws)) = choose_occupied_neighbor(ht, wt, size, &used, &mut rng)
+                    if let Some((hs, ws)) =
+                        choose_occupied_neighbor(ht, wt, size, &non_used, &mut rng)
                     {
                         let tile = board[hs as usize][ws as usize];
                         Some((tile, (ht, wt)))
@@ -138,7 +144,7 @@ pub fn gen_board(size: usize, tiles: usize, seed: Option<u64>, debug: bool) -> B
                     .expect("Always at least one tile");
                 if !indices[tile].is_empty() {
                     let choice_probability = 0.25;
-                    let source_position = if mode == Mode::BiasedToOrigin {
+                    let source_position = if strategy == Mode::BiasedToOrigin {
                         (0..indices[tile].len())
                             .cycle()
                             .find(|_| rng.gen::<f64>() <= choice_probability)
@@ -183,10 +189,10 @@ pub fn gen_board(size: usize, tiles: usize, seed: Option<u64>, debug: bool) -> B
 }
 
 fn choose_occupied_neighbor(
-    hs: i32,
-    ws: i32,
+    ht: i32,
+    wt: i32,
     size: i32,
-    used: &HashSet<(i32, i32)>,
+    non_used: &HashSet<(i32, i32)>,
     mut rng: &mut impl Rng,
 ) -> Option<(i32, i32)> {
     let offsets = [(-1, 0), (0, -1), (1, 0), (0, 1)];

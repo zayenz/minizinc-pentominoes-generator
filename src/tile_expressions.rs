@@ -12,6 +12,7 @@ fn generate_expression(board: &Board, tile: usize, tiles: usize) -> String {
         boards
             .iter()
             .map(|board| generate_single_transformation_expression(board, tile, tiles))
+            .unique()
             .join(") | (")
     );
     result

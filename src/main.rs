@@ -1,17 +1,15 @@
 use argh::FromArgs;
 use color_eyre::eyre::Result;
+use itertools::Itertools;
 use rand::prelude::*;
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 
 #[derive(FromArgs)]
 /// Generate instances for pentominoes-like MiniZinc problems
 struct Args {
-    /// the height of the board
+    /// the width and height of the board
     #[argh(option)]
-    height: usize,
-    /// the width of the board
-    #[argh(option)]
-    width: usize,
+    size: usize,
     /// the number of pieces
     #[argh(option)]
     pieces: usize,
@@ -23,25 +21,25 @@ struct Args {
     debug: bool,
 }
 
-fn gen_board(height: i32, width: i32, pieces: usize, seed: Option<u64>) -> Vec<Vec<usize>> {
-    let mut board = vec![vec![0; width as usize]; height as usize];
+fn gen_board(size: i32, pieces: usize, seed: Option<u64>) -> Vec<Vec<usize>> {
+    let mut board = vec![vec![0; size as usize]; size as usize];
     let mut rng = if let Some(seed) = seed {
         rand_xoshiro::Xoshiro256PlusPlus::seed_from_u64(seed)
     } else {
         rand_xoshiro::Xoshiro256PlusPlus::from_entropy()
     };
     let mut used = HashSet::new();
-    for h in 0..height {
+    for h in 0..size {
         used.insert((h, -1));
-        used.insert((h, width));
+        used.insert((h, size));
     }
-    for w in 0..width {
+    for w in 0..size {
         used.insert((-1, w));
-        used.insert((height, w));
+        used.insert((size, w));
     }
     let mut non_used = HashSet::new();
-    for h in 0..height {
-        for w in 0..width {
+    for h in 0..size {
+        for w in 0..size {
             non_used.insert((h, w));
         }
     }
@@ -49,7 +47,7 @@ fn gen_board(height: i32, width: i32, pieces: usize, seed: Option<u64>) -> Vec<V
     let mut indices = vec![Vec::new(); pieces + 1];
     for p in 1..=pieces {
         loop {
-            let (h, w) = (rng.gen_range(0, height), rng.gen_range(0, width));
+            let (h, w) = (rng.gen_range(0, size), rng.gen_range(0, size));
             if used.insert((h, w)) {
                 board[h as usize][w as usize] = p;
                 indices[p].push((h, w));
@@ -83,25 +81,94 @@ fn gen_board(height: i32, width: i32, pieces: usize, seed: Option<u64>) -> Vec<V
     board
 }
 
+fn generate_expression(
+    board: &Vec<Vec<usize>>,
+    piece: usize,
+    pieces: usize,
+    size: usize,
+) -> String {
+    let this = format!("{}", piece);
+    let other = format!(
+        "[{}]",
+        (1..=(pieces + 1))
+            .filter(|&p| p != piece)
+            .map(|p| p.to_string())
+            .join(" ")
+    );
+    // Start with some number of others
+    let mut result = format!("{}* ", &other);
+
+    // For each row that contains the piece, add the row-expression
+    let rows = board
+        .iter()
+        .filter(|row| row.contains(&piece))
+        .collect::<Vec<_>>();
+    for (index, &row) in rows.iter().enumerate() {
+        let mut groups: VecDeque<(bool, usize)> = row
+            .iter()
+            .group_by(|&&p| p == piece)
+            .into_iter()
+            .map(|(key, group)| (key, group.count()))
+            .collect();
+        // Remove groups of others if they are first/last group on the first/last row
+        if index == 0 && !groups[0].0 {
+            groups.pop_front();
+        }
+        if index == rows.len() - 1 && !groups[groups.len() - 1].0 {
+            groups.pop_back();
+        }
+        // Add all groups
+        for (is_this, count) in groups {
+            result += &format!("{}{{{}}} ", if is_this { &this } else { &other }, count);
+        }
+        // Add extra column marker separating rows
+        if index < rows.len() - 1 {
+            result += &other;
+            result += " ";
+        }
+    }
+
+    // End with some number of others
+    result += &format!(" {}*", &other);
+
+    result
+}
+
+fn print_instance(board: &Vec<Vec<usize>>, pieces: usize, size: usize) {
+    println!("size = {};", size);
+    println!("tiles = {};", pieces);
+    println!("expressions = [");
+    for piece in 1..=pieces {
+        println!(
+            "    \"{}\",",
+            generate_expression(board, piece, pieces, size)
+        )
+    }
+    println!("];");
+}
+
 fn main() -> Result<()> {
     color_eyre::install()?;
 
     let args: Args = argh::from_env();
 
-    let board = gen_board(
-        args.height as i32,
-        args.width as i32,
-        args.pieces,
-        args.seed,
-    );
+    let board = gen_board(args.size as i32, args.pieces, args.seed);
 
+    print_instance(&board, args.pieces, args.size);
+
+    debug_print(args, &board);
+
+    Ok(())
+}
+
+fn debug_print(args: Args, board: &Vec<Vec<usize>>) {
     if args.debug {
         let symbols: Vec<char> = "abcdefghijklmnopqrstuvwxyzABCDEFGIJKLMNOPQRSTUVWXYZ"
             .chars()
             .collect();
 
         for row in board {
-            for cell in row {
+            for &cell in row {
                 if args.pieces <= 9 {
                     eprint!("{}", cell);
                 } else if args.pieces < 9 + symbols.len() {
@@ -119,6 +186,4 @@ fn main() -> Result<()> {
             eprintln!();
         }
     }
-
-    Ok(())
 }

@@ -10,6 +10,19 @@ mod tile_expressions;
 /// The type of a board
 pub type Board = Vec<Vec<usize>>;
 
+/// Mode for generating tiles
+#[derive(Ord, PartialOrd, Eq, PartialEq, Copy, Clone, Debug)]
+pub enum Mode {
+    /// Use any free source to grow
+    UniformExtendSource,
+    /// Use any free neighbor to grow
+    UniformFreeTarget,
+    /// Grow close to the origin
+    BiasedToOrigin,
+    /// Grow far form origin
+    BiasedFromOrigin,
+}
+
 /// Generated a filled in board
 pub fn gen_board(size: usize, tiles: usize, seed: Option<u64>, debug: bool) -> Board {
     let size = size as i32;
@@ -28,10 +41,12 @@ pub fn gen_board(size: usize, tiles: usize, seed: Option<u64>, debug: bool) -> B
     } else {
         ProgressBar::hidden()
     };
+    let offsets = [(-1, 0), (0, -1), (1, 0), (0, 1)];
 
     // The following data-structures are used to keep track of all generated data
     // * used: the indices that have been filled in, with the border pre-added
     // * non-used: all indices that have note yet been used
+    // * neighbors: indices that are neighbors to some filled in square (may overlap used, filtered accordingly)
     // * sources: the set of filled in squares that can potentially be used to grow tiles from
     // * indices: a list of lists of all the indices that each tile occupies currently
     let mut used = HashSet::new();
@@ -49,54 +64,154 @@ pub fn gen_board(size: usize, tiles: usize, seed: Option<u64>, debug: bool) -> B
             non_used.insert((h, w));
         }
     }
-    let mut sources = Vec::new();
-    let mut indices = vec![Vec::new(); tiles + 1];
+    let mut neighbors: HashSet<(i32, i32)> = HashSet::new();
+    let mut sources: Vec<(i32, i32)> = Vec::new();
+    let mut indices: Vec<Vec<(i32, i32)>> = vec![Vec::new(); tiles + 1];
 
     // Generate a starting position for each tile, making sure that no
     // starting positions collide.
-    for p in 1..=tiles {
+    for tile in 1..=tiles {
         loop {
             let (h, w) = (rng.gen_range(0, size), rng.gen_range(0, size));
             if used.insert((h, w)) {
-                board[h as usize][w as usize] = p;
-                indices[p].push((h, w));
+                board[h as usize][w as usize] = tile;
+                indices[tile].push((h, w));
                 non_used.remove(&(h, w));
                 sources.push((h, w));
+                offsets
+                    .iter()
+                    .map(|&(ho, wo)| (h + ho, w + wo))
+                    .filter(|i| !used.contains(i))
+                    .for_each(|i| {
+                        neighbors.insert(i);
+                    });
                 progress.inc(1);
                 break;
             }
         }
     }
 
-    // Grow tiles by choosing one source square that has been filled in, and choosing one direction
-    // from that tile that is not filled in yet, and fill it in.
-    // If the chosen tile has no empty neighbours, it is removed form the list of potential sources.
-    let offsets = [(-1, 0), (0, -1), (1, 0), (0, 1)];
+    // Grow tiles by choosing a tile and a free position using the current mode, and filling it it,
+    // as long as there are empty places to fill in
     while !non_used.is_empty() {
-        let source_index = rng.gen_range(0, sources.len());
-        let (h, w): (i32, i32) = sources[source_index];
-        let valid_offsets = offsets
-            .iter()
-            .filter(|(ho, wo)| !used.contains(&(h + ho, w + wo)))
-            .cloned()
-            .collect::<Vec<_>>();
-        if let Some((ho, wo)) = valid_offsets.choose(&mut rng) {
-            let p = board[h as usize][w as usize];
-            let (hn, wn) = (h + ho, w + wo);
-            board[hn as usize][wn as usize] = p;
-            indices[p].push((hn, wn));
-            used.insert((hn, wn));
-            non_used.remove(&(hn, wn));
-            sources.push((hn, wn));
+        let mode = Mode::UniformExtendSource;
+        if let Some((tile, (ht, wt))) = match mode {
+            Mode::UniformExtendSource => {
+                // Choose one source square that has been filled in, and choosing one direction
+                // from that tile that is not filled in yet, and fill it in.
+                // If the chosen tile has no empty neighbours, it is removed form the list of potential sources.
+                let source_index = rng.gen_range(0, sources.len());
+                let (hs, ws) = sources[source_index];
+                if let Some((ht, wt)) = choose_unoccupied_neighbor(hs, ws, &used, &mut rng) {
+                    let tile = board[hs as usize][ws as usize];
+                    Some((tile, (ht, wt)))
+                } else {
+                    sources.remove(source_index);
+                    None
+                }
+            }
+            Mode::UniformFreeTarget => {
+                // Choose a square that has a filled-in neighbour, and if it is still free,
+                // choose one of its neighbours as the source.
+                let target = *neighbors
+                    .iter()
+                    .choose(&mut rng)
+                    .expect("A neighbor must exist");
+                neighbors.remove(&target);
+                if !used.contains(&target) {
+                    let (ht, wt) = target;
+                    if let Some((hs, ws)) = choose_occupied_neighbor(ht, wt, size, &used, &mut rng)
+                    {
+                        let tile = board[hs as usize][ws as usize];
+                        Some((tile, (ht, wt)))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            Mode::BiasedToOrigin | Mode::BiasedFromOrigin => {
+                // Choose a tile, and
+                let tile = (1..tiles)
+                    .choose(&mut rng)
+                    .expect("Always at least one tile");
+                if !indices[tile].is_empty() {
+                    let choice_probability = 0.25;
+                    let source_position = if mode == Mode::BiasedToOrigin {
+                        (0..indices[tile].len())
+                            .cycle()
+                            .find(|_| rng.gen::<f64>() <= choice_probability)
+                    } else {
+                        (0..indices[tile].len())
+                            .rev()
+                            .cycle()
+                            .find(|_| rng.gen::<f64>() <= choice_probability)
+                    }
+                    .expect("Repeated draws will choose some element");
+                    let (hs, ws) = indices[tile][source_position];
+                    if let Some((ht, wt)) = choose_unoccupied_neighbor(hs, ws, &used, &mut rng) {
+                        Some((tile, (ht, wt)))
+                    } else {
+                        indices[tile].remove(source_position);
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+        } {
+            board[ht as usize][wt as usize] = tile;
+            indices[tile].push((ht, wt));
+            used.insert((ht, wt));
+            non_used.remove(&(ht, wt));
+            sources.push((ht, wt));
+            offsets
+                .iter()
+                .map(|&(ho, wo)| (ht + ho, wt + wo))
+                .filter(|i| !used.contains(i))
+                .for_each(|i| {
+                    neighbors.insert(i);
+                });
             progress.inc(1);
-        } else {
-            sources.remove(source_index);
         }
     }
 
     progress.finish();
 
     board
+}
+
+fn choose_occupied_neighbor(
+    hs: i32,
+    ws: i32,
+    size: i32,
+    used: &HashSet<(i32, i32)>,
+    mut rng: &mut impl Rng,
+) -> Option<(i32, i32)> {
+    let offsets = [(-1, 0), (0, -1), (1, 0), (0, 1)];
+
+    offsets
+        .iter()
+        .map(|&(ho, wo)| (ht + ho, wt + wo))
+        .filter(|i| !non_used.contains(i))
+        .filter(|&(hs, ws)| (0..size).contains(&hs) && (0..size).contains(&ws))
+        .choose(&mut rng)
+}
+
+fn choose_unoccupied_neighbor(
+    hs: i32,
+    ws: i32,
+    used: &HashSet<(i32, i32)>,
+    mut rng: &mut impl Rng,
+) -> Option<(i32, i32)> {
+    let offsets = [(-1, 0), (0, -1), (1, 0), (0, 1)];
+
+    offsets
+        .iter()
+        .map(|&(ho, wo)| (hs + ho, ws + wo))
+        .filter(|i| !used.contains(i))
+        .choose(&mut rng)
 }
 
 pub fn print_instance(

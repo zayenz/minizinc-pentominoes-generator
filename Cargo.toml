@@ -1,5 +1,5 @@
 [package]
-name = "minizic-pentominoes-generator"
+name = "minizinc-pentominoes-generator"
 version = "0.1.0"
 authors = ["zayenz"]
 edition = "2018"

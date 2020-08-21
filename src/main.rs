@@ -10,9 +10,9 @@ struct Args {
     /// the width and height of the board
     #[argh(option)]
     size: usize,
-    /// the number of pieces
+    /// the number of tiles
     #[argh(option)]
-    pieces: usize,
+    tiles: usize,
     /// the random number seed to use (if absent, use system entropy)
     #[argh(option)]
     seed: Option<u64>,
@@ -21,7 +21,7 @@ struct Args {
     debug: bool,
 }
 
-fn gen_board(size: i32, pieces: usize, seed: Option<u64>) -> Vec<Vec<usize>> {
+fn gen_board(size: i32, tiles: usize, seed: Option<u64>) -> Vec<Vec<usize>> {
     let mut board = vec![vec![0; size as usize]; size as usize];
     let mut rng = if let Some(seed) = seed {
         rand_xoshiro::Xoshiro256PlusPlus::seed_from_u64(seed)
@@ -44,8 +44,8 @@ fn gen_board(size: i32, pieces: usize, seed: Option<u64>) -> Vec<Vec<usize>> {
         }
     }
     let mut sources = Vec::new();
-    let mut indices = vec![Vec::new(); pieces + 1];
-    for p in 1..=pieces {
+    let mut indices = vec![Vec::new(); tiles + 1];
+    for p in 1..=tiles {
         loop {
             let (h, w) = (rng.gen_range(0, size), rng.gen_range(0, size));
             if used.insert((h, w)) {
@@ -99,7 +99,7 @@ fn rot90(board: &Vec<Vec<usize>>) -> Vec<Vec<usize>> {
     result
 }
 
-fn generate_expression(board: &Vec<Vec<usize>>, piece: usize, pieces: usize) -> String {
+fn generate_expression(board: &Vec<Vec<usize>>, tile: usize, tiles: usize) -> String {
     let boards = [
         board.clone(),
         rot90(board),
@@ -114,7 +114,7 @@ fn generate_expression(board: &Vec<Vec<usize>>, piece: usize, pieces: usize) -> 
         "( ({}) )",
         boards
             .iter()
-            .map(|board| generate_single_transformation_expression(board, piece, pieces))
+            .map(|board| generate_single_transformation_expression(board, tile, tiles))
             .join(") | (")
     );
     result
@@ -122,29 +122,29 @@ fn generate_expression(board: &Vec<Vec<usize>>, piece: usize, pieces: usize) -> 
 
 fn generate_single_transformation_expression(
     board: &Vec<Vec<usize>>,
-    piece: usize,
-    pieces: usize,
+    tile: usize,
+    tiles: usize,
 ) -> String {
-    let this = format!("{}", piece);
+    let this = format!("{}", tile);
     let other = format!(
         "[{}]",
-        (1..=(pieces + 1))
-            .filter(|&p| p != piece)
+        (1..=(tiles + 1))
+            .filter(|&p| p != tile)
             .map(|p| p.to_string())
             .join(" ")
     );
     // Start with some number of others
     let mut result = format!("{}* ", &other);
 
-    // For each row that contains the piece, add the row-expression
+    // For each row that contains the tile, add the row-expression
     let rows = board
         .iter()
-        .filter(|row| row.contains(&piece))
+        .filter(|row| row.contains(&tile))
         .collect::<Vec<_>>();
     for (index, &row) in rows.iter().enumerate() {
         let mut groups: VecDeque<(bool, usize)> = row
             .iter()
-            .group_by(|&&p| p == piece)
+            .group_by(|&&p| p == tile)
             .into_iter()
             .map(|(key, group)| (key, group.count()))
             .collect();
@@ -172,12 +172,12 @@ fn generate_single_transformation_expression(
     result
 }
 
-fn print_instance(board: &Vec<Vec<usize>>, pieces: usize, size: usize) {
+fn print_instance(board: &Vec<Vec<usize>>, tiles: usize, size: usize) {
     println!("size = {};", size);
-    println!("tiles = {};", pieces);
+    println!("tiles = {};", tiles);
     println!("expressions = [");
-    for piece in 1..=pieces {
-        println!("    \"{}\",", generate_expression(board, piece, pieces))
+    for tile in 1..=tiles {
+        println!("    \"{}\",", generate_expression(board, tile, tiles))
     }
     println!("];");
 }
@@ -187,9 +187,9 @@ fn main() -> Result<()> {
 
     let args: Args = argh::from_env();
 
-    let board = gen_board(args.size as i32, args.pieces, args.seed);
+    let board = gen_board(args.size as i32, args.tiles, args.seed);
 
-    print_instance(&board, args.pieces, args.size);
+    print_instance(&board, args.tiles, args.size);
 
     debug_print(args, &board);
 
@@ -204,15 +204,15 @@ fn debug_print(args: Args, board: &Vec<Vec<usize>>) {
 
         for row in board {
             for &cell in row {
-                if args.pieces <= 9 {
+                if args.tiles <= 9 {
                     eprint!("{}", cell);
-                } else if args.pieces < 9 + symbols.len() {
+                } else if args.tiles < 9 + symbols.len() {
                     if cell <= 9 {
                         eprint!("{}", cell);
                     } else {
                         eprint!("{}", symbols[cell - 9]);
                     }
-                } else if args.pieces <= 99 {
+                } else if args.tiles <= 99 {
                     eprint!("{:02}", cell);
                 } else {
                     eprint!("{:03}", cell);

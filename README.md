@@ -2,14 +2,14 @@
 
 Simple instance generator for pentominoes-like problems in MiniZinc.
 
-The project contains a single executable minizic-pentominoes-generator, that is invoked as follows
+The project contains a single executable minizinc-pentominoes-generator, that is invoked as follows
 
 ```
 Generate instances for pentominoes-like MiniZinc problems
 
 Options:
   --size            the width and height of the board
-  --pieces          the number of pieces
+  --tiles           the number of tiles
   --seed            the random number seed to use (if absent, use system
                     entropy)
   -d, --debug       debug print the generated board
@@ -17,14 +17,20 @@ Options:
 
 ```
 
-The generator works fast for sizes up to around 100x100, while for 1000x1000 it takes around 10 seconds to run.
+The `model/` folder contains a model for the problem, and the `data/` folder contains a set of instances.
+
+---
+
+## Generated instances
+
+The script folder contains a simple script to generate a set of instances, with the current output in the `data/` folder.
+The script can be modified to generate different sets of instances.
 
 ---
 
 ## Installation
 
 Clone this repository and build with a recent (>=1.40) version of Rust.
-
 
 ---
 

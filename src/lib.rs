@@ -1,5 +1,6 @@
 use color_eyre::Result;
 use indicatif::ProgressBar;
+use itertools::Itertools;
 use rand::prelude::*;
 use std::collections::HashSet;
 use std::io::{stdout, Write};
@@ -47,7 +48,6 @@ pub fn gen_board(
     } else {
         ProgressBar::hidden()
     };
-    let offsets = [(-1, 0), (0, -1), (1, 0), (0, 1)];
 
     // The following data-structures are used to keep track of all generated data
     // * used: the indices that have been filled in, with the border pre-added
@@ -84,13 +84,9 @@ pub fn gen_board(
                 indices[tile].push((h, w));
                 non_used.remove(&(h, w));
                 sources.push((h, w));
-                offsets
-                    .iter()
-                    .map(|&(ho, wo)| (h + ho, w + wo))
-                    .filter(|i| !used.contains(i))
-                    .for_each(|i| {
-                        neighbors.insert(i);
-                    });
+                for i in find_unused_neighbors(h, w, &used) {
+                    neighbors.insert(i);
+                }
                 progress.inc(1);
                 break;
             }
@@ -172,13 +168,9 @@ pub fn gen_board(
             used.insert((ht, wt));
             non_used.remove(&(ht, wt));
             sources.push((ht, wt));
-            offsets
-                .iter()
-                .map(|&(ho, wo)| (ht + ho, wt + wo))
-                .filter(|i| !used.contains(i))
-                .for_each(|i| {
-                    neighbors.insert(i);
-                });
+            for i in find_unused_neighbors(ht, wt, &used) {
+                neighbors.insert(i);
+            }
             progress.inc(1);
         }
     }
@@ -186,6 +178,16 @@ pub fn gen_board(
     progress.finish();
 
     board
+}
+
+fn find_unused_neighbors(h: i32, w: i32, used: &HashSet<(i32, i32)>) -> Vec<(i32, i32)> {
+    let offsets = [(-1, 0), (0, -1), (1, 0), (0, 1)];
+
+    offsets
+        .iter()
+        .map(|&(ho, wo)| (h + ho, w + wo))
+        .filter(|i| !used.contains(i))
+        .collect_vec()
 }
 
 fn choose_occupied_neighbor(

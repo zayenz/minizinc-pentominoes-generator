@@ -1,5 +1,6 @@
 use argh::FromArgs;
 use color_eyre::eyre::Result;
+use indicatif::ProgressBar;
 use itertools::Itertools;
 use rand::prelude::*;
 use std::collections::{HashSet, VecDeque};
@@ -23,12 +24,21 @@ struct Args {
 }
 
 /// Generated a filled in board
-fn gen_board(size: i32, tiles: usize, seed: Option<u64>) -> Vec<Vec<usize>> {
+fn gen_board(size: i32, tiles: usize, seed: Option<u64>, debug: bool) -> Vec<Vec<usize>> {
     let mut board = vec![vec![0; size as usize]; size as usize];
     let mut rng = if let Some(seed) = seed {
         rand_xoshiro::Xoshiro256PlusPlus::seed_from_u64(seed)
     } else {
         rand_xoshiro::Xoshiro256PlusPlus::from_entropy()
+    };
+    let progress = if debug {
+        eprintln!(
+            "Generating board of size {}x{} with {} tiles",
+            size, size, tiles
+        );
+        ProgressBar::new((size * size) as u64)
+    } else {
+        ProgressBar::hidden()
     };
 
     // The following data-structures are used to keep track of all generated data
@@ -64,6 +74,7 @@ fn gen_board(size: i32, tiles: usize, seed: Option<u64>) -> Vec<Vec<usize>> {
                 indices[p].push((h, w));
                 non_used.remove(&(h, w));
                 sources.push((h, w));
+                progress.inc(1);
                 break;
             }
         }
@@ -89,10 +100,13 @@ fn gen_board(size: i32, tiles: usize, seed: Option<u64>) -> Vec<Vec<usize>> {
             used.insert((hn, wn));
             non_used.remove(&(hn, wn));
             sources.push((hn, wn));
+            progress.inc(1);
         } else {
             sources.remove(source_index);
         }
     }
+
+    progress.finish();
 
     board
 }
@@ -208,12 +222,26 @@ fn generate_single_transformation_expression(
     result
 }
 
-fn print_instance(board: &Vec<Vec<usize>>, tiles: usize, size: usize) {
+fn print_instance(board: &Vec<Vec<usize>>, tiles: usize, size: usize, debug: bool) {
+    let progress = if debug {
+        eprintln!("Generating {} tile expressions", tiles);
+        ProgressBar::new(tiles as u64)
+    } else {
+        ProgressBar::hidden()
+    };
+
+    let tile_expressions = (1..=tiles)
+        .map(|tile| {
+            let expression = generate_expression(board, tile, tiles);
+            progress.inc(1);
+            expression
+        })
+        .collect_vec();
     println!("size = {};", size);
     println!("tiles = {};", tiles);
     println!("expressions = [");
-    for tile in 1..=tiles {
-        println!("    \"{}\",", generate_expression(board, tile, tiles))
+    for tile_expression in tile_expressions {
+        println!("    \"{}\",", tile_expression);
     }
     println!("];");
 }
@@ -223,9 +251,9 @@ fn main() -> Result<()> {
 
     let args: Args = argh::from_env();
 
-    let board = gen_board(args.size as i32, args.tiles, args.seed);
+    let board = gen_board(args.size as i32, args.tiles, args.seed, args.debug);
 
-    print_instance(&board, args.tiles, args.size);
+    print_instance(&board, args.tiles, args.size, args.debug);
 
     if args.debug {
         pretty_print_board(&mut stderr(), &board, args.tiles, None)?;

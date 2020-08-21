@@ -1,3 +1,22 @@
+% Instance for pentominoes model generated using https://github.com/zayenz/minizinc-pentominoes-generator
+% Instance generated for board size 15 with 20 tiles using 42 as seed
+% Generated board
+%    2222222hh777444
+%    52222222hhh7777
+%    52222111hhh7777
+%    5ddii11hhhh7777
+%    55dji111hhhllll
+%    gggji11111cclll
+%    gggj311111ccccl
+%    gggj66111fccccc
+%    ggjj66661ffkkcc
+%    ggj666ffffkkkke
+%    g66666fffffkkke
+%    6666688ffffkkee
+%    88886888fffkkee
+%    888888bbbbbbeee
+%    88888999bbbbeee
+
 size = 15;
 tiles = 20;
 expressions = [

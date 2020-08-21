@@ -222,7 +222,13 @@ fn generate_single_transformation_expression(
     result
 }
 
-fn print_instance(board: &Vec<Vec<usize>>, tiles: usize, size: usize, debug: bool) {
+fn print_instance(
+    board: &Vec<Vec<usize>>,
+    tiles: usize,
+    size: usize,
+    seed: Option<u64>,
+    debug: bool,
+) -> Result<()> {
     let progress = if debug {
         eprintln!("Generating {} tile expressions", tiles);
         ProgressBar::new(tiles as u64)
@@ -237,6 +243,21 @@ fn print_instance(board: &Vec<Vec<usize>>, tiles: usize, size: usize, debug: boo
             expression
         })
         .collect_vec();
+
+    println!("% Instance for pentominoes model generated using https://github.com/zayenz/minizinc-pentominoes-generator");
+    println!(
+        "% Instance generated for board size {} with {} tiles using {}",
+        size,
+        tiles,
+        if let Some(seed) = seed {
+            format!("{} as seed", seed)
+        } else {
+            "system entropy".to_string()
+        }
+    );
+    println!("% Generated board");
+    pretty_print_board(&mut stdout(), board, tiles, Some("%    "))?;
+    println!();
     println!("size = {};", size);
     println!("tiles = {};", tiles);
     println!("expressions = [");
@@ -244,6 +265,8 @@ fn print_instance(board: &Vec<Vec<usize>>, tiles: usize, size: usize, debug: boo
         println!("    \"{}\",", tile_expression);
     }
     println!("];");
+
+    Ok(())
 }
 
 fn main() -> Result<()> {
@@ -253,11 +276,11 @@ fn main() -> Result<()> {
 
     let board = gen_board(args.size as i32, args.tiles, args.seed, args.debug);
 
-    print_instance(&board, args.tiles, args.size, args.debug);
-
     if args.debug {
         pretty_print_board(&mut stderr(), &board, args.tiles, None)?;
     }
+
+    print_instance(&board, args.tiles, args.size, args.seed, args.debug)?;
 
     Ok(())
 }

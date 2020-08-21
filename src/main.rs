@@ -21,6 +21,7 @@ struct Args {
     debug: bool,
 }
 
+/// Generated a filled in board
 fn gen_board(size: i32, tiles: usize, seed: Option<u64>) -> Vec<Vec<usize>> {
     let mut board = vec![vec![0; size as usize]; size as usize];
     let mut rng = if let Some(seed) = seed {
@@ -28,6 +29,12 @@ fn gen_board(size: i32, tiles: usize, seed: Option<u64>) -> Vec<Vec<usize>> {
     } else {
         rand_xoshiro::Xoshiro256PlusPlus::from_entropy()
     };
+
+    // The following data-structures are used to keep track of all generated data
+    // * used: the indices that have been filled in, with the border pre-added
+    // * non-used: all indices that have note yet been used
+    // * sources: the set of filled in squares that can potentially be used to grow tiles from
+    // * indices: a list of lists of all the indices that each tile occupies currently
     let mut used = HashSet::new();
     for h in 0..size {
         used.insert((h, -1));
@@ -45,6 +52,9 @@ fn gen_board(size: i32, tiles: usize, seed: Option<u64>) -> Vec<Vec<usize>> {
     }
     let mut sources = Vec::new();
     let mut indices = vec![Vec::new(); tiles + 1];
+
+    // Generate a starting position for each tile, making sure that no
+    // starting positions collide.
     for p in 1..=tiles {
         loop {
             let (h, w) = (rng.gen_range(0, size), rng.gen_range(0, size));
@@ -57,6 +67,10 @@ fn gen_board(size: i32, tiles: usize, seed: Option<u64>) -> Vec<Vec<usize>> {
             }
         }
     }
+
+    // Grow tiles by choosing one source square that has been filled in, and choosing one direction
+    // from that tile that is not filled in yet, and fill it in.
+    // If the chosen tile has no empty neighbours, it is removed form the list of potential sources.
     let offsets = [(-1, 0), (0, -1), (1, 0), (0, 1)];
     while !non_used.is_empty() {
         let source_index = rng.gen_range(0, sources.len());
@@ -78,9 +92,11 @@ fn gen_board(size: i32, tiles: usize, seed: Option<u64>) -> Vec<Vec<usize>> {
             sources.remove(source_index);
         }
     }
+
     board
 }
 
+/// Flip each row in the board
 fn flip1(board: &Vec<Vec<usize>>) -> Vec<Vec<usize>> {
     board
         .iter()
@@ -88,6 +104,7 @@ fn flip1(board: &Vec<Vec<usize>>) -> Vec<Vec<usize>> {
         .collect_vec()
 }
 
+/// Rotate the board 90 degrees
 fn rot90(board: &Vec<Vec<usize>>) -> Vec<Vec<usize>> {
     let size = board.len();
     let mut result = vec![vec![0; size]; size];
@@ -99,6 +116,7 @@ fn rot90(board: &Vec<Vec<usize>>) -> Vec<Vec<usize>> {
     result
 }
 
+/// Generate a regular expression for placing a tile in any rotation
 fn generate_expression(board: &Vec<Vec<usize>>, tile: usize, tiles: usize) -> String {
     let boards = [
         board.clone(),
@@ -110,6 +128,7 @@ fn generate_expression(board: &Vec<Vec<usize>>, tile: usize, tiles: usize) -> St
         flip1(&rot90(&rot90(board))),
         flip1(&rot90(&(rot90(&rot90(board))))),
     ];
+    // Build the string "( (expr for id) | (expre for rot90) | ... )"
     let result = format!(
         "( ({}) )",
         boards
@@ -120,6 +139,7 @@ fn generate_expression(board: &Vec<Vec<usize>>, tile: usize, tiles: usize) -> St
     result
 }
 
+/// Generate a regular expression for placing a tile in a specified rotation
 fn generate_single_transformation_expression(
     board: &Vec<Vec<usize>>,
     tile: usize,
@@ -133,6 +153,7 @@ fn generate_single_transformation_expression(
             .map(|p| p.to_string())
             .join(" ")
     );
+
     // Start with some number of others
     let mut result = format!("{}* ", &other);
 
@@ -142,25 +163,39 @@ fn generate_single_transformation_expression(
         .filter(|row| row.contains(&tile))
         .collect::<Vec<_>>();
     for (index, &row) in rows.iter().enumerate() {
-        let mut groups: VecDeque<(bool, usize)> = row
+        let is_last_row = index == rows.len() - 1;
+
+        struct Group {
+            is_tile: bool,
+            size: usize,
+        };
+        let mut groups: VecDeque<Group> = row
             .iter()
             .group_by(|&&p| p == tile)
             .into_iter()
-            .map(|(key, group)| (key, group.count()))
+            .map(|(key, group)| Group {
+                is_tile: key,
+                size: group.count(),
+            })
             .collect();
+
         // Remove groups of others if they are first/last group on the first/last row
-        if index == 0 && !groups[0].0 {
+        if index == 0 && !groups[0].is_tile {
             groups.pop_front();
         }
-        if index == rows.len() - 1 && !groups[groups.len() - 1].0 {
+        if is_last_row && !groups[groups.len() - 1].is_tile {
             groups.pop_back();
         }
-        // Add all groups
-        for (is_this, count) in groups {
-            result += &format!("{}{{{}}} ", if is_this { &this } else { &other }, count);
+        // Add all groups using counter for the number of repetitions
+        for group in groups {
+            result += &format!(
+                "{}{{{}}} ",
+                if group.is_tile { &this } else { &other },
+                group.size
+            );
         }
         // Add extra column marker separating rows
-        if index < rows.len() - 1 {
+        if !is_last_row {
             result += &other;
             result += " ";
         }

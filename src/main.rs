@@ -81,11 +81,49 @@ fn gen_board(size: i32, pieces: usize, seed: Option<u64>) -> Vec<Vec<usize>> {
     board
 }
 
-fn generate_expression(
+fn flip1(board: &Vec<Vec<usize>>) -> Vec<Vec<usize>> {
+    board
+        .iter()
+        .map(|row| row.iter().rev().cloned().collect_vec())
+        .collect_vec()
+}
+
+fn rot90(board: &Vec<Vec<usize>>) -> Vec<Vec<usize>> {
+    let size = board.len();
+    let mut result = vec![vec![0; size]; size];
+    for w in 0..size {
+        for h in 0..size {
+            result[w][size - h - 1] = board[h][w];
+        }
+    }
+    result
+}
+
+fn generate_expression(board: &Vec<Vec<usize>>, piece: usize, pieces: usize) -> String {
+    let boards = [
+        board.clone(),
+        rot90(board),
+        rot90(&rot90(board)),
+        rot90(&(rot90(&rot90(board)))),
+        flip1(board),
+        flip1(&rot90(board)),
+        flip1(&rot90(&rot90(board))),
+        flip1(&rot90(&(rot90(&rot90(board))))),
+    ];
+    let result = format!(
+        "( ({}) )",
+        boards
+            .iter()
+            .map(|board| generate_single_transformation_expression(board, piece, pieces))
+            .join(") | (")
+    );
+    result
+}
+
+fn generate_single_transformation_expression(
     board: &Vec<Vec<usize>>,
     piece: usize,
     pieces: usize,
-    size: usize,
 ) -> String {
     let this = format!("{}", piece);
     let other = format!(
@@ -139,10 +177,7 @@ fn print_instance(board: &Vec<Vec<usize>>, pieces: usize, size: usize) {
     println!("tiles = {};", pieces);
     println!("expressions = [");
     for piece in 1..=pieces {
-        println!(
-            "    \"{}\",",
-            generate_expression(board, piece, pieces, size)
-        )
+        println!("    \"{}\",", generate_expression(board, piece, pieces))
     }
     println!("];");
 }

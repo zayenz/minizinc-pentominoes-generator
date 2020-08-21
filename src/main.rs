@@ -1,10 +1,8 @@
 use argh::FromArgs;
 use color_eyre::eyre::Result;
-use std::io::stderr;
-
 use color_eyre::Report;
-use minizinc_pentominoes_generator;
 use minizinc_pentominoes_generator::Mode;
+use std::io::stderr;
 use std::str::FromStr;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]

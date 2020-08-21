@@ -1,3 +1,5 @@
+#![allow(clippy::ptr_arg, clippy::needless_range_loop)]
+
 use color_eyre::Result;
 use indicatif::ProgressBar;
 use itertools::Itertools;

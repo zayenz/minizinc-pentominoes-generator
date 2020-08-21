@@ -7,15 +7,14 @@ use std::collections::VecDeque;
 fn generate_expression(board: &Board, tile: usize, tiles: usize) -> String {
     let boards = symmetries::generate_symmetric_boards(&board);
     // Build the string "( (expr for id) | (expre for rot90) | ... )"
-    let result = format!(
+    format!(
         "( ({}) )",
         boards
             .iter()
             .map(|board| generate_single_transformation_expression(board, tile, tiles))
             .unique()
             .join(") | (")
-    );
-    result
+    )
 }
 
 /// Generate a regular expression for placing a tile in a specified rotation
@@ -94,12 +93,11 @@ pub(crate) fn generate_tile_expressions(
         ProgressBar::hidden()
     };
 
-    let tile_expressions = (1..=tiles)
+    (1..=tiles)
         .map(|tile| {
             let expression = generate_expression(board, tile, tiles);
             progress.inc(1);
             expression
         })
-        .collect_vec();
-    tile_expressions
+        .collect_vec()
 }

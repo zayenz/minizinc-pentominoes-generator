@@ -1,5 +1,12 @@
 # Instance generator for pentominoes-like placement problems in MiniZinc
 
+
+[![Build Status][actions-badge]][actions-url]
+
+[actions-badge]: https://github.com/zayenz/minizinc-pentominoes-generator//workflows/CI/badge.svg
+[actions-url]: https://github.com/zayenz/minizinc-pentominoes-generator//actions?query=workflow%3A%22CI%22
+
+
 Simple instance generator for pentominoes-like problems in MiniZinc.
 
 The project contains a single executable minizinc-pentominoes-generator, that is invoked as follows
@@ -34,7 +41,7 @@ The script can be modified to generate different sets of instances.
 
 ## Installation
 
-Clone this repository and build with a recent (>=1.40) version of Rust.
+Clone this repository and build with a recent (>=1.42) version of Rust.
 
 ---
 

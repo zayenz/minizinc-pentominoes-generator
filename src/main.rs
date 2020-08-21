@@ -3,6 +3,7 @@ use color_eyre::eyre::Result;
 use itertools::Itertools;
 use rand::prelude::*;
 use std::collections::{HashSet, VecDeque};
+use std::io::{stderr, stdout, Write};
 
 #[derive(FromArgs)]
 /// Generate instances for pentominoes-like MiniZinc problems
@@ -226,34 +227,44 @@ fn main() -> Result<()> {
 
     print_instance(&board, args.tiles, args.size);
 
-    debug_print(args, &board);
+    if args.debug {
+        pretty_print_board(&mut stderr(), &board, args.tiles, None)?;
+    }
 
     Ok(())
 }
 
-fn debug_print(args: Args, board: &Vec<Vec<usize>>) {
-    if args.debug {
-        let symbols: Vec<char> = "abcdefghijklmnopqrstuvwxyzABCDEFGIJKLMNOPQRSTUVWXYZ"
-            .chars()
-            .collect();
+fn pretty_print_board(
+    out: &mut dyn Write,
+    board: &Vec<Vec<usize>>,
+    tiles: usize,
+    row_prefix: Option<&str>,
+) -> Result<()> {
+    let symbols: Vec<char> = "abcdefghijklmnopqrstuvwxyzABCDEFGIJKLMNOPQRSTUVWXYZ"
+        .chars()
+        .collect();
 
-        for row in board {
-            for &cell in row {
-                if args.tiles <= 9 {
-                    eprint!("{}", cell);
-                } else if args.tiles < 9 + symbols.len() {
-                    if cell <= 9 {
-                        eprint!("{}", cell);
-                    } else {
-                        eprint!("{}", symbols[cell - 9]);
-                    }
-                } else if args.tiles <= 99 {
-                    eprint!("{:02}", cell);
-                } else {
-                    eprint!("{:03}", cell);
-                }
-            }
-            eprintln!();
+    for row in board {
+        if let Some(row_prefix) = row_prefix {
+            write!(out, "{}", row_prefix)?;
         }
+        for &cell in row {
+            if tiles <= 9 {
+                write!(out, "{}", cell)?;
+            } else if tiles < 9 + symbols.len() {
+                if cell <= 9 {
+                    write!(out, "{}", cell)?;
+                } else {
+                    write!(out, "{}", symbols[cell - 9])?;
+                }
+            } else if tiles <= 99 {
+                write!(out, "{:02}", cell)?;
+            } else {
+                write!(out, "{:03}", cell)?;
+            }
+        }
+        writeln!(out)?;
     }
+
+    Ok(())
 }

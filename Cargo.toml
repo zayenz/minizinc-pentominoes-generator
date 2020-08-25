@@ -1,8 +1,14 @@
 [package]
 name = "minizinc-pentominoes-generator"
 version = "0.1.0"
-authors = ["zayenz"]
+authors = ["Mikael Zayenz Lagerkvist <research@zayenz.se>"]
 edition = "2018"
+license = "MIT OR Apache-2.0"
+description = "A generator for pentominos-like packing instances in MiniZinc, including a model"
+repository = "https://github.com/zayenz/minizinc-pentominoes-generator"
+readme = "README.md"
+categories = []
+keywords = []
 
 [lib]
 name = "minizinc_pentominoes_generator"

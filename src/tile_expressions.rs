@@ -93,11 +93,15 @@ pub(crate) fn generate_tile_expressions(
         ProgressBar::hidden()
     };
 
-    (1..=tiles)
+    let tile_expressions = (1..=tiles)
         .map(|tile| {
             let expression = generate_expression(board, tile, tiles);
             progress.inc(1);
             expression
         })
-        .collect_vec()
+        .collect_vec();
+
+    progress.finish();
+
+    tile_expressions
 }

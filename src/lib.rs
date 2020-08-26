@@ -34,6 +34,10 @@ pub fn gen_board(
     seed: Option<u64>,
     debug: bool,
 ) -> Board {
+    if tiles > size * size {
+        panic!("not enough area to place this many tiles.");
+    }
+
     let size = size as i32;
     let mut board = vec![vec![0; size as usize]; size as usize];
     let mut rng = if let Some(seed) = seed {
@@ -100,70 +104,23 @@ pub fn gen_board(
     while !non_used.is_empty() {
         if let Some((tile, (ht, wt))) = match strategy {
             Mode::UniformExtendSource => {
-                // Choose one source square that has been filled in, and choosing one direction
-                // from that tile that is not filled in yet, and fill it in.
-                // If the chosen tile has no empty neighbours, it is removed form the list of potential sources.
-                let source_index = rng.gen_range(0, sources.len());
-                let (hs, ws) = sources[source_index];
-                if let Some((ht, wt)) = choose_unoccupied_neighbor(hs, ws, &used, &mut rng) {
-                    let tile = board[hs as usize][ws as usize];
-                    Some((tile, (ht, wt)))
-                } else {
-                    sources.remove(source_index);
-                    None
-                }
+                choose_square_extend_source(&board, &used, &mut sources, &mut rng)
             }
-            Mode::UniformFreeTarget => {
-                // Choose a square that has a filled-in neighbour, and if it is still free,
-                // choose one of its neighbours as the source.
-                let target = *neighbors
-                    .iter()
-                    .choose(&mut rng)
-                    .expect("A neighbor must exist");
-                neighbors.remove(&target);
-                if !used.contains(&target) {
-                    let (ht, wt) = target;
-                    if let Some((hs, ws)) =
-                        choose_occupied_neighbor(ht, wt, size, &non_used, &mut rng)
-                    {
-                        let tile = board[hs as usize][ws as usize];
-                        Some((tile, (ht, wt)))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
-            Mode::BiasedToOrigin | Mode::BiasedFromOrigin => {
-                // Choose a tile, and
-                let tile = (1..tiles)
-                    .choose(&mut rng)
-                    .expect("Always at least one tile");
-                if !indices[tile].is_empty() {
-                    let choice_probability = 0.25;
-                    let source_position = if strategy == Mode::BiasedToOrigin {
-                        (0..indices[tile].len())
-                            .cycle()
-                            .find(|_| rng.gen::<f64>() <= choice_probability)
-                    } else {
-                        (0..indices[tile].len())
-                            .rev()
-                            .cycle()
-                            .find(|_| rng.gen::<f64>() <= choice_probability)
-                    }
-                    .expect("Repeated draws will choose some element");
-                    let (hs, ws) = indices[tile][source_position];
-                    if let Some((ht, wt)) = choose_unoccupied_neighbor(hs, ws, &used, &mut rng) {
-                        Some((tile, (ht, wt)))
-                    } else {
-                        indices[tile].remove(source_position);
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
+            Mode::UniformFreeTarget => choose_square_extend_target(
+                &board,
+                size,
+                &used,
+                &non_used,
+                &mut neighbors,
+                &mut rng,
+            ),
+            Mode::BiasedToOrigin | Mode::BiasedFromOrigin => choose_square_biased(
+                strategy == Mode::BiasedToOrigin,
+                tiles,
+                &used,
+                &mut indices,
+                &mut rng,
+            ),
         } {
             board[ht as usize][wt as usize] = tile;
             indices[tile].push((ht, wt));
@@ -180,6 +137,94 @@ pub fn gen_board(
     progress.finish();
 
     board
+}
+
+/// Choose one source square that has been filled in, and choosing one direction
+/// from that tile that is not filled in yet, and fill it in.
+///
+/// Side effect: If the chosen tile has no empty neighbours, it is removed form the list
+/// of potential sources.
+fn choose_square_extend_source(
+    board: &Vec<Vec<usize>>,
+    used: &HashSet<(i32, i32)>,
+    sources: &mut Vec<(i32, i32)>,
+    rng: &mut impl Rng,
+) -> Option<(usize, (i32, i32))> {
+    let source_index = rng.gen_range(0, sources.len());
+    let (hs, ws) = sources[source_index];
+    if let Some((ht, wt)) = choose_unoccupied_neighbor(hs, ws, &used, rng) {
+        let tile = board[hs as usize][ws as usize];
+        Some((tile, (ht, wt)))
+    } else {
+        sources.remove(source_index);
+        None
+    }
+}
+
+/// Choose a square that has a filled-in neighbour, and if it is still free,
+/// choose one of its neighbours as the source.
+///
+/// Side effect: the chosen target is removed from the list of neighbors
+fn choose_square_extend_target(
+    board: &Vec<Vec<usize>>,
+    size: i32,
+    used: &HashSet<(i32, i32)>,
+    non_used: &HashSet<(i32, i32)>,
+    neighbors: &mut HashSet<(i32, i32)>,
+    rng: &mut impl Rng,
+) -> Option<(usize, (i32, i32))> {
+    let target = *neighbors.iter().choose(rng).expect("A neighbor must exist");
+    neighbors.remove(&target);
+    if !used.contains(&target) {
+        let (ht, wt) = target;
+        if let Some((hs, ws)) = choose_occupied_neighbor(ht, wt, size, &non_used, rng) {
+            let tile = board[hs as usize][ws as usize];
+            Some((tile, (ht, wt)))
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+/// Choose a tile, and choose one square of that tile to extend in some direction.
+/// The choice of square to extend is either biased towards the origin (earlier
+/// generated squares) or from the origin (later generated squares).
+///
+/// Side-effect: if there are no unoccupied neighbors to the chosen source, remove
+/// it from the list of indices
+fn choose_square_biased(
+    biased_to_origin: bool,
+    tiles: usize,
+    used: &HashSet<(i32, i32)>,
+    indices: &mut Vec<Vec<(i32, i32)>>,
+    rng: &mut impl Rng,
+) -> Option<(usize, (i32, i32))> {
+    let tile = (1..tiles).choose(rng).expect("Always at least one tile");
+    if !indices[tile].is_empty() {
+        let choice_probability = 0.25;
+        let source_position = if biased_to_origin {
+            (0..indices[tile].len())
+                .cycle()
+                .find(|_| rng.gen::<f64>() <= choice_probability)
+        } else {
+            (0..indices[tile].len())
+                .rev()
+                .cycle()
+                .find(|_| rng.gen::<f64>() <= choice_probability)
+        }
+        .expect("Repeated draws will choose some element");
+        let (hs, ws) = indices[tile][source_position];
+        if let Some((ht, wt)) = choose_unoccupied_neighbor(hs, ws, &used, rng) {
+            Some((tile, (ht, wt)))
+        } else {
+            indices[tile].remove(source_position);
+            None
+        }
+    } else {
+        None
+    }
 }
 
 fn find_unused_neighbors(h: i32, w: i32, used: &HashSet<(i32, i32)>) -> Vec<(i32, i32)> {

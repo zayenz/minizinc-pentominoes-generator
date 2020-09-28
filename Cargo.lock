@@ -75,9 +75,9 @@ checksum = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
 
 [[package]]
 name = "color-eyre"
-version = "0.5.2"
+version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6799fa22451e23a9ebf735955c0aab5a4e772b1bcb2dbc4b791e43337015beae"
+checksum = "beae3fcb8e4494aaf14ef64a78509215edd4ac824114a679e4c799cd7c07ad2a"
 dependencies = [
  "backtrace",
  "color-spantrace",

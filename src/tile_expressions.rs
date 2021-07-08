@@ -42,7 +42,7 @@ fn generate_single_transformation_expression(board: &Board, tile: usize, tiles: 
         struct Group {
             is_tile: bool,
             size: usize,
-        };
+        }
         let mut groups: VecDeque<Group> = row
             .iter()
             .group_by(|&&p| p == tile)

@@ -84,7 +84,7 @@ pub fn gen_board(
     // starting positions collide.
     for tile in 1..=tiles {
         loop {
-            let (h, w) = (rng.gen_range(0, size), rng.gen_range(0, size));
+            let (h, w) = (rng.gen_range(0..size), rng.gen_range(0..size));
             if used.insert((h, w)) {
                 board[h as usize][w as usize] = tile;
                 indices[tile].push((h, w));
@@ -150,7 +150,7 @@ fn choose_square_extend_source(
     sources: &mut Vec<(i32, i32)>,
     rng: &mut impl Rng,
 ) -> Option<(usize, (i32, i32))> {
-    let source_index = rng.gen_range(0, sources.len());
+    let source_index = rng.gen_range(0..sources.len());
     let (hs, ws) = sources[source_index];
     if let Some((ht, wt)) = choose_unoccupied_neighbor(hs, ws, &used, rng) {
         let tile = board[hs as usize][ws as usize];

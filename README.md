@@ -41,7 +41,7 @@ The script can be modified to generate different sets of instances.
 
 ## Installation
 
-Clone this repository and build with a recent (>=1.42) version of Rust.
+Clone this repository and build with a recent (>=1.53) version of Rust.
 
 ---
 

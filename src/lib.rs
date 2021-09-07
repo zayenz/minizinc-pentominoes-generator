@@ -152,7 +152,7 @@ fn choose_square_extend_source(
 ) -> Option<(usize, (i32, i32))> {
     let source_index = rng.gen_range(0..sources.len());
     let (hs, ws) = sources[source_index];
-    if let Some((ht, wt)) = choose_unoccupied_neighbor(hs, ws, &used, rng) {
+    if let Some((ht, wt)) = choose_unoccupied_neighbor(hs, ws, used, rng) {
         let tile = board[hs as usize][ws as usize];
         Some((tile, (ht, wt)))
     } else {
@@ -177,7 +177,7 @@ fn choose_square_extend_target(
     neighbors.remove(&target);
     if !used.contains(&target) {
         let (ht, wt) = target;
-        if let Some((hs, ws)) = choose_occupied_neighbor(ht, wt, size, &non_used, rng) {
+        if let Some((hs, ws)) = choose_occupied_neighbor(ht, wt, size, non_used, rng) {
             let tile = board[hs as usize][ws as usize];
             Some((tile, (ht, wt)))
         } else {
@@ -216,7 +216,7 @@ fn choose_square_biased(
         }
         .expect("Repeated draws will choose some element");
         let (hs, ws) = indices[tile][source_position];
-        if let Some((ht, wt)) = choose_unoccupied_neighbor(hs, ws, &used, rng) {
+        if let Some((ht, wt)) = choose_unoccupied_neighbor(hs, ws, used, rng) {
             Some((tile, (ht, wt)))
         } else {
             indices[tile].remove(source_position);

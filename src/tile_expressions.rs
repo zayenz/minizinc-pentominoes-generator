@@ -5,7 +5,7 @@ use std::collections::VecDeque;
 
 /// Generate a regular expression for placing a tile in any rotation
 fn generate_expression(board: &Board, tile: usize, tiles: usize) -> String {
-    let boards = symmetries::generate_symmetric_boards(&board);
+    let boards = symmetries::generate_symmetric_boards(board);
     // Build the string "( (expr for id) | (expre for rot90) | ... )"
     format!(
         "( ({}) )",

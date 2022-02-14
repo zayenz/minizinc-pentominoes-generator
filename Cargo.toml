@@ -23,7 +23,7 @@ path = "src/main.rs"
 [dependencies]
 argh = "0.1.6"
 color-eyre = "0.5.11"
-rand = "0.8.4"
+rand = "0.8.5"
 rand_xoshiro = "0.6.0"
 itertools = "0.10.1"
 indicatif = "0.16.2"

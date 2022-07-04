@@ -19,9 +19,9 @@ checksum = "ee2a4ec343196209d6594e19543ae87a39f96d5534d7174822a3ad825dd6ed7e"
 
 [[package]]
 name = "argh"
-version = "0.1.6"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f023c76cd7975f9969f8e29f0e461decbdc7f51048ce43427107a3d192f1c9bf"
+checksum = "a7e7e4aa7e40747e023c0761dafcb42333a9517575bbf1241747f68dd3177a62"
 dependencies = [
  "argh_derive",
  "argh_shared",
@@ -29,9 +29,9 @@ dependencies = [
 
 [[package]]
 name = "argh_derive"
-version = "0.1.6"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48ad219abc0c06ca788aface2e3a1970587e3413ab70acd20e54b6ec524c1f8f"
+checksum = "69f2bd7ff6ed6414f4e5521bd509bae46454bbd513801767ced3f21a751ab4bc"
 dependencies = [
  "argh_shared",
  "heck",
@@ -42,9 +42,9 @@ dependencies = [
 
 [[package]]
 name = "argh_shared"
-version = "0.1.6"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38de00daab4eac7d753e97697066238d67ce9d7e2d823ab4f72fe14af29f3f33"
+checksum = "47253b98986dafc7a3e1cf3259194f1f47ac61abb57a57f46ec09e48d004ecda"
 
 [[package]]
 name = "backtrace"
